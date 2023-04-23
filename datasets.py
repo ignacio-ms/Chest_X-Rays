@@ -1,4 +1,8 @@
 import tensorflow as tf
+import numpy as np
+import cv2
+
+import utils
 import os
 
 
@@ -24,38 +28,65 @@ class CXRDataset:
                 img_labels.append(label)
 
         self.img_names = img_names
-        self.img_laberls = img_labels
+        self.img_labels = img_labels
+        self.X = []
 
+    @utils.timed
     def load(self):
+        """
+        Load the images of the dataset from disk
+        """
         ds = tf.data.Dataset.from_tensor_slices((self.img_names, self.img_labels))
-        # ds = ds.map(self.map_img)
+        ds = ds.map(self.map_img)
 
-        for X, y in ds: self.data.append(X[0])
+        [self.X.append(x[0]) for x in ds]
 
     @staticmethod
     def read_img(img_path: tf.Variable) -> np.ndarray:
         """
-        This function read an image of a given path as a Numpy Array
+        Read an image of a given path as a Numpy Array
         :param img_path: Path
         :return: Image
         """
         img_path = img_path.decode('utf-8')
         img = cv2.imread(img_path, cv2.IMREAD_COLOR)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         img = img / 255.0
         img = img.astype(np.float32)
         return img
 
-    # def map_img(self, img_path: tf.Variable, label: tf.Variable) -> (tf.Tensor, tf.Tensor):
-    #     """
-    #     This function read an image of a given path as a Tensor and encodes its label using OneHotEncoding
-    #     :param img_path: Path
-    #     :param label: Label
-    #     :return:
-    #     """
-    #     img = tf.numpy_function(self.read_img, [img_path], [tf.float32])
-    #     label = tf.one_hot(label, 8, dtype=tf.int32)
-    #     return img, label
+    def map_img(self, img_path: tf.Variable, label: tf.Variable) -> (tf.Tensor, tf.Tensor):
+        """
+        Read an image of a given path as a Tensor and encodes its label using OneHotEncoding
+        :param img_path: Path
+        :param label: Label
+        :return:
+        """
+        img = tf.numpy_function(self.read_img, [img_path], [tf.float32])
+        # label = tf.one_hot(label, 8, dtype=tf.int32)
+        return img, label
+
+    def print_img(self, index):
+        """
+        Print an image of the dataset using opencv
+        :param index: Index of the image in the dataset
+        """
+        if len(self.X) == 0:
+            raise ValueError("Can't print empty dataset\n")
+
+        img = self.X[index].numpy()
+        label = self.oh2disease(self.img_labels[index])
+
+        cv2.imshow(label, img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    def oh2disease(self, label):
+        """
+        :param label: OneHot-Encoded label of the img
+        :return: Dissease/s label of the img
+        """
+        return np.array(list(map(self.CLASS_NAMES.__getitem__, np.nonzero(label)[0])))
 
     def __len__(self):
         return len(self.img_names)
