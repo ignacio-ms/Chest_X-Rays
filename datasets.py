@@ -50,7 +50,7 @@ class CXRDataset:
         """
         img_path = img_path.decode('utf-8')
         img = cv2.imread(img_path, cv2.IMREAD_COLOR)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img = img / 255.0
         img = img.astype(np.float32)
         return img
@@ -75,9 +75,10 @@ class CXRDataset:
             raise ValueError("Can't print empty dataset\n")
 
         img = self.X[index].numpy()
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         label = self.oh2disease(self.img_labels[index])
 
-        cv2.imshow(label, img)
+        cv2.imshow(np.array2string(label, separator=','), img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
@@ -86,7 +87,8 @@ class CXRDataset:
         :param label: OneHot-Encoded label of the img
         :return: Dissease/s label of the img
         """
-        return np.array(list(map(self.CLASS_NAMES.__getitem__, np.nonzero(label)[0])))
+        dis = np.array(list(map(self.CLASS_NAMES.__getitem__, np.nonzero(label)[0])))
+        return dis if len(dis) != 0 else np.array('Normal')
 
     def __len__(self):
         return len(self.img_names)
