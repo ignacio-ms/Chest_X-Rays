@@ -27,19 +27,22 @@ class CXRDataset:
                 img_names.append(os.path.join(img_dir, name))
                 img_labels.append(label)
 
-        self.img_names = img_names
-        self.img_labels = img_labels
         self.X = []
+        self.y = img_labels
+        self.img_names = img_names
 
     @utils.timed
     def load(self):
         """
         Load the images of the dataset from disk
         """
-        ds = tf.data.Dataset.from_tensor_slices((self.img_names, self.img_labels))
+        ds = tf.data.Dataset.from_tensor_slices((self.img_names, self.y))
         ds = ds.map(self.map_img)
 
         [self.X.append(x[0]) for x in ds]
+        self.X = np.asarray(self.X)
+        self.X = self.X.reshape((-1, 1024, 1024, 3))
+        self.y = np.asarray(self.y)
 
     @staticmethod
     def read_img(img_path: tf.Variable) -> np.ndarray:
@@ -50,7 +53,7 @@ class CXRDataset:
         """
         img_path = img_path.decode('utf-8')
         img = cv2.imread(img_path, cv2.IMREAD_COLOR)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img = img / 255.0
         img = img.astype(np.float32)
         return img
@@ -74,7 +77,8 @@ class CXRDataset:
             raise ValueError("Can't print empty dataset\n")
 
         img = self.X[index].numpy()[0]
-        label = self.oh2disease(self.img_labels[index])
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        label = self.oh2disease(self.y[index])
 
         cv2.imshow(np.array2string(label, separator=','), img)
         cv2.waitKey(0)
@@ -87,6 +91,13 @@ class CXRDataset:
         """
         dis = np.array(list(map(self.CLASS_NAMES.__getitem__, np.nonzero(label)[0])))
         return dis if len(dis) != 0 else np.array('Normal')
+
+    def __str__(self):
+        print('----------CXR Dataset----------')
+        print(f'No.Examples: {len(self.img_names)}')
+        print(f'No.Clases: {self.N_CLASSES}')
+        print(f'Image shapes: {self.X[0].shape if len(self.X) != 0 else "nan"}')
+        return 'TfDataset'
 
     def __len__(self):
         return len(self.img_names)
