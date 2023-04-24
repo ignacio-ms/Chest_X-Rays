@@ -50,20 +50,19 @@ class CXRDataset:
         """
         img_path = img_path.decode('utf-8')
         img = cv2.imread(img_path, cv2.IMREAD_COLOR)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         img = img / 255.0
         img = img.astype(np.float32)
         return img
 
     def map_img(self, img_path: tf.Variable, label: tf.Variable) -> (tf.Tensor, tf.Tensor):
         """
-        Read an image of a given path as a Tensor and encodes its label using OneHotEncoding
+        Read an image of a given path as a Tensor
         :param img_path: Path
         :param label: Label
         :return:
         """
         img = tf.numpy_function(self.read_img, [img_path], [tf.float32])
-        # label = tf.one_hot(label, 8, dtype=tf.int32)
         return img, label
 
     def print_img(self, index):
@@ -74,8 +73,7 @@ class CXRDataset:
         if len(self.X) == 0:
             raise ValueError("Can't print empty dataset\n")
 
-        img = self.X[index].numpy()
-        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        img = self.X[index].numpy()[0]
         label = self.oh2disease(self.img_labels[index])
 
         cv2.imshow(np.array2string(label, separator=','), img)
