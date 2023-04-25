@@ -4,9 +4,8 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 from keras.models import Model
 from keras.layers import (
     BatchNormalization, Dropout,
-    Flatten, Dense
+    Flatten, Dense, Conv2D, Global
 )
-from keras.utils.vis_utils import plot_model
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -25,15 +24,16 @@ class TransferVGG:
             input_shape=self.input_shape
         )
 
-        self.base_model = tf.keras.models.Sequential(self.base_model.layers[:-1])
+        # self.base_model = tf.keras.models.Sequential(self.base_model.layers[:-1])
+        self.base_model.layers.pop()
 
     def build_top(self, fine_tuning=True):
         """
         This function loads the top of the VGG16 pretrained model.
         """
         x = self.base_model.output
-        x = Flatten()(x)
-        x = Dense(1024, activation='elu', kernel_initializer='he_uniform')(x)
+        x_trans = Conv2D(2048, kernel_size=3, padding=1, strides=1)(x)
+        x = Dense(1024, activation='elu', kernel_initializer='he_uniform')(x_trans)
         x = BatchNormalization()(x)
         x = Dropout(rate=0.5)(x)
         predictions = Dense(self.n_classes, activation='softmax')(x)

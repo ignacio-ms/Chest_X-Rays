@@ -28,8 +28,8 @@ print(f'Validation {val}')
 
 # ----- TransferVGG Training and Evaluation ----- #
 model_vgg = TransferVGG()
-model_vgg.build_top()
-model_vgg.compile()
+model_vgg.build_top(fine_tuning=True)
+model_vgg.compile(lr=1e-4)
 model_vgg.train(
     train.X, train.y,
     val.X, val.y,
