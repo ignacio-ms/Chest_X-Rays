@@ -1,10 +1,13 @@
+import cv2
 from keras.applications.vgg16 import VGG16
 import tensorflow as tf
 from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 from keras.models import Model
+import keras.backend as K
 from keras.layers import (
     BatchNormalization, Dropout,
-    Flatten, Dense, Conv2D, Global
+    Flatten, Dense, Conv2D,
+    GlobalAvgPool2D
 )
 
 import numpy as np
@@ -14,7 +17,7 @@ import matplotlib.pyplot as plt
 class TransferVGG:
 
     def __init__(self):
-        self.input_shape = (1024, 1024, 3)
+        self.input_shape = (512, 512, 3)
         self.n_classes = 14
 
         self.model = None
@@ -24,7 +27,6 @@ class TransferVGG:
             input_shape=self.input_shape
         )
 
-        # self.base_model = tf.keras.models.Sequential(self.base_model.layers[:-1])
         self.base_model.layers.pop()
 
     def build_top(self, fine_tuning=True):
@@ -32,10 +34,9 @@ class TransferVGG:
         This function loads the top of the VGG16 pretrained model.
         """
         x = self.base_model.output
-        x_trans = Conv2D(2048, kernel_size=3, padding=1, strides=1)(x)
-        x = Dense(1024, activation='elu', kernel_initializer='he_uniform')(x_trans)
-        x = BatchNormalization()(x)
-        x = Dropout(rate=0.5)(x)
+        x_trans = Conv2D(2048, kernel_size=3, padding="same", strides=1, name='transition_layer')(x)
+        x = GlobalAvgPool2D()(x_trans)
+        # x = tf.nn.weighted_cross_entropy_with_logits()(x_trans)
         predictions = Dense(self.n_classes, activation='softmax')(x)
 
         self.model = Model(inputs=self.base_model.inputs, outputs=predictions)
@@ -47,23 +48,22 @@ class TransferVGG:
         """
         This function compiles the tensorflow model
         :param lr: Learning Rate
-        :param metrics: Metrics to apply while training
+        :param metrics: Metrics to apply while training44
         """
         if metrics is None:
             metrics = ['accuracy']
         self.model.compile(
             optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
             loss=tf.keras.losses.BinaryCrossentropy(from_logits=False),
+            # loss=tf.nn.weighted_cross_entropy_with_logits(),
             metrics=metrics
         )
 
-    def train(self, X_train: tf.Tensor, y_train: tf.Tensor, X_val: tf.Tensor, y_val: tf.Tensor, batch_size=16, epochs=20, save=False, verbose=False):
+    def train(self, train_gen, val_gen, batch_size=16, epochs=20, save=False, verbose=False):
         """
         This funtion trains the model
-        :param X_train: Train Image data
-        :param y_train: Train labels
-        :param X_val: Validation Image data
-        :param y_val: Validation labels
+        :param val_gen:
+        :param train_gen:
         :param batch_size: Ammount of samples to feed in the network
         :param epochs: Number or epochs
         :param save: Boolean to save the model
@@ -75,16 +75,16 @@ class TransferVGG:
             EarlyStopping(monitor="val_accuracy", patience=10, verbose=1)
         ]
         if save:
-            callbacks.append(ModelCheckpoint(filepath='D:\\model_vgg_.h5', monitor="val_accuracy", verbose=1, save_best_only=True))
+            callbacks.append(ModelCheckpoint(filepath='D:\\model_vgg_ft.h5', monitor="val_accuracy", verbose=1, save_best_only=False))
 
         # Train Model
         history = self.model.fit(
-            X_train,
-            y_train,
-            validation_data=(X_val, y_val),
+            train_gen,
+            validation_data=val_gen,
             epochs=epochs,
             batch_size=batch_size,
-            callbacks=callbacks
+            callbacks=callbacks,
+            verbose=1
         )
 
         if verbose:
@@ -113,27 +113,67 @@ class TransferVGG:
 
         return history
 
-    def predict_per_class(self, X: tf.Tensor, y: tf.Tensor, verbose=False) -> [int]:
-        """
-        This function predict each image and return the accuracy per class
-        :param X: Image data
-        :param y: Labels
-        :param verbose: Boolean for printing a bar plot
-        :return: Accuracy per class
-        """
-        pred = self.model.predict(X)
-        pred = np.argmax(pred, axis=1)
+    def class_activation_mapping(self, original_img, target_class=1):
+        # a = self.model.layers[-3].output[0]
+        # w = self.model.layers[-1].get_weights()[0]
+        # return tf.matmul(a, w)
 
-        prob_per_class = []
-        for c in np.unique(y):
-            c_pred = np.sum(np.where(pred[y == c] == y[y == c], 1, 0))
-            prob_per_class.append(c_pred / np.sum(np.where(y == c, 1, 0)))
+        w, h, _ = original_img.shape
+        # img = np.array([np.transpose(np.float32(original_img), (2, 0, 1))])
+        img = original_img.reshape(1, 512, 512, 3)
 
-        if verbose:
-            plt.bar(np.unique(y), prob_per_class)
-            plt.title('Accuracy predictions per class')
-            plt.xlabel('Classes')
-            plt.ylabel('Accuracy')
-            plt.show()
+        class_weights = self.model.layers[-1].get_weights()[0]
+        transition_layer = self.model.layers[-3]
 
-        return prob_per_class
+        get_output = K.function(
+            [self.model.layers[0].input],
+            [
+                transition_layer.output,
+                self.model.layers[-1].output
+            ]
+        )
+        [transition_outputs, predictions] = get_output([img])
+        transition_outputs = transition_outputs[0, :, :, :]
+
+        cam = np.zeros(dtype=np.float32, shape=transition_outputs.shape[1:3])
+        print(class_weights[target_class, :].shape)
+        for i, w in enumerate(class_weights[target_class, :]):
+            cam += w * transition_outputs[i, :, :]
+
+        cam = cv2.resize(cam, (512, 512))
+        cam = np.maximum(cam, 0)
+        heatmap = cam / np.max(cam)
+
+        original_img = original_img[0, :]
+        original_img -= np.min(original_img)
+        original_img = np.minimum(original_img, 255)
+
+        cam = cv2.applyColorMap(np.uint8(255 * heatmap), cv2.COLORMAP_JET)
+        cam = np.float32(cam) + np.float32(original_img)
+        cam = 255 * cam / np.max(cam)
+        return np.uint8(cam), heatmap
+
+    # def predict_per_class(self, X: tf.Tensor, y: tf.Tensor, verbose=False) -> [int]:
+    #     """
+    #     This function predict each image and return the accuracy per class
+    #     :param X: Image data
+    #     :param y: Labels
+    #     :param verbose: Boolean for printing a bar plot
+    #     :return: Accuracy per class
+    #     """
+    #     pred = self.model.predict(X)
+    #     pred = np.argmax(pred, axis=1)
+    #
+    #     prob_per_class = []
+    #     for c in np.unique(y):
+    #         c_pred = np.sum(np.where(pred[y == c] == y[y == c], 1, 0))
+    #         prob_per_class.append(c_pred / np.sum(np.where(y == c, 1, 0)))
+    #
+    #     if verbose:
+    #         plt.bar(np.unique(y), prob_per_class)
+    #         plt.title('Accuracy predictions per class')
+    #         plt.xlabel('Classes')
+    #         plt.ylabel('Accuracy')
+    #         plt.show()
+    #
+    #     return prob_per_class
