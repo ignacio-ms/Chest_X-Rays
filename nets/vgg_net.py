@@ -53,7 +53,7 @@ class TransferVGG:
         if metrics is None:
             metrics = ['accuracy']
         self.model.compile(
-            optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
+            optimizer=tf.keras.optimizers.SGD(learning_rate=lr),
             loss=tf.keras.losses.BinaryCrossentropy(from_logits=False),
             # loss=tf.nn.weighted_cross_entropy_with_logits(),
             metrics=metrics
@@ -72,10 +72,11 @@ class TransferVGG:
         """
         callbacks = [
             ReduceLROnPlateau(monitor="val_accuracy", patience=3, factor=0.1, verbose=1, min_lr=1e-6),
-            EarlyStopping(monitor="val_accuracy", patience=10, verbose=1)
+            EarlyStopping(monitor="val_accuracy", patience=5, verbose=1)
         ]
         if save:
-            callbacks.append(ModelCheckpoint(filepath='D:\\model_vgg_ft.h5', monitor="val_accuracy", verbose=1, save_best_only=False))
+            callbacks.append(ModelCheckpoint(filepath='D:\\model_vgg_ft.h5', monitor="val_accuracy", verbose=1,
+                                             save_best_only=False))
 
         # Train Model
         history = self.model.fit(
@@ -152,6 +153,9 @@ class TransferVGG:
         cam = np.float32(cam) + np.float32(original_img)
         cam = 255 * cam / np.max(cam)
         return np.uint8(cam), heatmap
+
+    def load(self, path):
+        self.model = tf.keras.models.load_model(path)
 
     # def predict_per_class(self, X: tf.Tensor, y: tf.Tensor, verbose=False) -> [int]:
     #     """

@@ -1,4 +1,5 @@
 from nets.vgg_net import TransferVGG
+from nets.res_net import TransferResNet
 from datasets import CXRDataset
 
 import tensorflow as tf
@@ -31,7 +32,7 @@ val_gen = CXRDataset(
 )
 
 # ----- TransferVGG Training and Evaluation ----- #
-model_vgg = TransferVGG()
+model_vgg = TransferResNet()
 model_vgg.build_top(fine_tuning=True)
 model_vgg.compile(lr=1e-3)
 model_vgg.train(

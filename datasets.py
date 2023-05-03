@@ -56,22 +56,6 @@ class CXRDataset(tf.keras.utils.Sequence):
         y = batch_y  # [self.__get_label(label) for label in batch_y]
         return tf.convert_to_tensor(x), tf.convert_to_tensor(y)
 
-#     def print_img(self, index):
-#         """
-#         Print an image of the dataset using opencv
-#         :param index: Index of the image in the dataset
-#         """
-#         if len(self.X) == 0:
-#             raise ValueError("Can't print empty dataset\n")
-#
-#         img = self.X[index]
-#         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-#         label = self.oh2disease(self.y[index])
-#
-#         cv2.imshow(np.array2string(label, separator=','), img)
-#         cv2.waitKey(0)
-#         cv2.destroyAllWindows()
-#
 #     def oh2disease(self, label):
 #         """
 #         :param label: OneHot-Encoded label of the img
@@ -79,10 +63,3 @@ class CXRDataset(tf.keras.utils.Sequence):
 #         """
 #         dis = np.array(list(map(self.CLASS_NAMES.__getitem__, np.nonzero(label)[0])))
 #         return dis if len(dis) != 0 else np.array('Normal')
-#
-#     def __str__(self):
-#         print('----------CXR Dataset----------')
-#         print(f'No.Examples: {len(self.img_names)}')
-#         print(f'No.Clases: {self.N_CLASSES}')
-#         print(f'Image shapes: {self.X[0].shape if len(self.X) != 0 else "nan"}')
-#         return 'TfDataset'
