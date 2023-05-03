@@ -5,8 +5,7 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 from keras.models import Model
 import keras.backend as K
 from keras.layers import (
-    BatchNormalization, Dropout,
-    Flatten, Dense, Conv2D,
+    Dense, Conv2D,
     GlobalAvgPool2D
 )
 
