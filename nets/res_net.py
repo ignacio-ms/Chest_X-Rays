@@ -11,6 +11,7 @@ from keras.layers import (
 
 import numpy as np
 import matplotlib.pyplot as plt
+from nets.custom_layers import w_cel_loss, LSEPooling
 
 
 class TransferResNet:
@@ -34,9 +35,8 @@ class TransferResNet:
         """
         x = self.base_model.output
         x_trans = Conv2D(1024, kernel_size=3, padding="same", strides=1, name='transition_layer')(x)
-        x = GlobalAvgPool2D()(x_trans)
-        # x = tf.nn.weighted_cross_entropy_with_logits()(x_trans)
-        predictions = Dense(self.n_classes, activation='softmax')(x)
+        x = LSEPooling()(x_trans)
+        predictions = Dense(self.n_classes, activation='sigmoid')(x)
 
         self.model = Model(inputs=self.base_model.inputs, outputs=predictions)
 
@@ -50,11 +50,10 @@ class TransferResNet:
         :param metrics: Metrics to apply while training44
         """
         if metrics is None:
-            metrics = ['accuracy']
+            metrics = [tf.keras.metrics.AUC()]
         self.model.compile(
             optimizer=tf.keras.optimizers.SGD(learning_rate=lr),
-            loss=tf.keras.losses.BinaryCrossentropy(from_logits=False),
-            # loss=tf.nn.weighted_cross_entropy_with_logits(),
+            loss=w_cel_loss(),
             metrics=metrics
         )
 
@@ -70,11 +69,11 @@ class TransferResNet:
         :return: Historic of the model
         """
         callbacks = [
-            ReduceLROnPlateau(monitor="val_accuracy", patience=3, factor=0.1, verbose=1, min_lr=1e-6),
-            EarlyStopping(monitor="val_accuracy", patience=5, verbose=1)
+            ReduceLROnPlateau(monitor="auc", patience=3, factor=0.1, verbose=1, min_lr=1e-6),
+            EarlyStopping(monitor="auc", patience=5, verbose=1)
         ]
         if save:
-            callbacks.append(ModelCheckpoint(filepath='D:\\model_res_ft.h5', monitor="val_accuracy", verbose=1,
+            callbacks.append(ModelCheckpoint(filepath='D:\\model_res.{epoch:02d}.h5', monitor="auc", verbose=1,
                                              save_best_only=False))
 
         # Train Model
