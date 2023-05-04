@@ -1,27 +1,24 @@
-import cv2
-from keras.applications.resnet import ResNet50
 import tensorflow as tf
-from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
-from keras.models import Model
-import keras.backend as K
-from keras.layers import (
-    Dense, Conv2D,
-    GlobalAvgPool2D
-)
+import cv2
+
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
+from tensorflow.keras.models import Model
+import tensorflow.keras.backend as K
+from tensorflow.keras.layers import Dense, Conv2D
+from nets.custom_layers import w_cel_loss, LSEPooling
 
 import numpy as np
 import matplotlib.pyplot as plt
-from nets.custom_layers import w_cel_loss, LSEPooling
 
 
 class TransferResNet:
 
     def __init__(self):
-        self.input_shape = (512, 512, 3)
+        self.input_shape = (256, 256, 3)
         self.n_classes = 14
 
         self.model = None
-        self.base_model = ResNet50(
+        self.base_model = tf.keras.applications.ResNet50(
             include_top=False,
             weights='imagenet',
             input_shape=self.input_shape
@@ -30,9 +27,6 @@ class TransferResNet:
         self.base_model.layers.pop()
 
     def build_top(self, fine_tuning=True):
-        """
-        This function loads the top of the VGG16 pretrained model.
-        """
         x = self.base_model.output
         x_trans = Conv2D(1024, kernel_size=3, padding="same", strides=1, name='transition_layer')(x)
         x = LSEPooling()(x_trans)
@@ -44,11 +38,6 @@ class TransferResNet:
             layer.trainable = True if fine_tuning else False
 
     def compile(self, lr=1e-3, metrics=None):
-        """
-        This function compiles the tensorflow model
-        :param lr: Learning Rate
-        :param metrics: Metrics to apply while training44
-        """
         if metrics is None:
             metrics = [tf.keras.metrics.AUC()]
         self.model.compile(
@@ -58,31 +47,24 @@ class TransferResNet:
         )
 
     def train(self, train_gen, val_gen, batch_size=16, epochs=20, save=False, verbose=False):
-        """
-        This funtion trains the model
-        :param val_gen:
-        :param train_gen:
-        :param batch_size: Ammount of samples to feed in the network
-        :param epochs: Number or epochs
-        :param save: Boolean to save the model
-        :param verbose: Boolean to see extra data
-        :return: Historic of the model
-        """
         callbacks = [
             ReduceLROnPlateau(monitor="auc", patience=3, factor=0.1, verbose=1, min_lr=1e-6),
             EarlyStopping(monitor="auc", patience=5, verbose=1)
         ]
         if save:
-            callbacks.append(ModelCheckpoint(filepath='D:\\model_res.{epoch:02d}.h5', monitor="auc", verbose=1,
-                                             save_best_only=False))
+            callbacks.append(ModelCheckpoint(
+                filepath='D:\\model_res.{epoch:02d}.h5',
+                monitor="auc", verbose=1,
+                save_best_only=False)
+            )
 
         # Train Model
         history = self.model.fit(
             train_gen,
             validation_data=val_gen,
             epochs=epochs,
-            batch_size=batch_size,
             callbacks=callbacks,
+            batch_size=batch_size,
             verbose=1
         )
 
@@ -118,7 +100,7 @@ class TransferResNet:
         # return tf.matmul(a, w)
 
         w, h, _ = original_img.shape
-        # img = np.array([np.transpose(np.float32(original_img), (2, 0, 1))])
+        # img = np.array([np.transpose(np.float16(original_img), (2, 0, 1))])
         img = original_img.reshape(1, 512, 512, 3)
 
         class_weights = self.model.layers[-1].get_weights()[0]
@@ -134,7 +116,7 @@ class TransferResNet:
         [transition_outputs, predictions] = get_output([img])
         transition_outputs = transition_outputs[0, :, :, :]
 
-        cam = np.zeros(dtype=np.float32, shape=transition_outputs.shape[1:3])
+        cam = np.zeros(dtype=np.float16, shape=transition_outputs.shape[1:3])
         print(class_weights[target_class, :].shape)
         for i, w in enumerate(class_weights[target_class, :]):
             cam += w * transition_outputs[i, :, :]
@@ -148,7 +130,7 @@ class TransferResNet:
         original_img = np.minimum(original_img, 255)
 
         cam = cv2.applyColorMap(np.uint8(255 * heatmap), cv2.COLORMAP_JET)
-        cam = np.float32(cam) + np.float32(original_img)
+        cam = np.float16(cam) + np.float16(original_img)
         cam = 255 * cam / np.max(cam)
         return np.uint8(cam), heatmap
 
@@ -156,13 +138,6 @@ class TransferResNet:
         self.model = tf.keras.models.load_model(path)
 
     # def predict_per_class(self, X: tf.Tensor, y: tf.Tensor, verbose=False) -> [int]:
-    #     """
-    #     This function predict each image and return the accuracy per class
-    #     :param X: Image data
-    #     :param y: Labels
-    #     :param verbose: Boolean for printing a bar plot
-    #     :return: Accuracy per class
-    #     """
     #     pred = self.model.predict(X)
     #     pred = np.argmax(pred, axis=1)
     #

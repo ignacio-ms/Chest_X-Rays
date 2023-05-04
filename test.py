@@ -1,11 +1,11 @@
 import tensorflow as tf
-from nets.vgg_net import TransferVGG
+from nets.res_net import TransferResNet
 
 import numpy as np
 import cv2
 
 
-model_vgg = TransferVGG()
+model_vgg = TransferResNet()
 model_vgg.load('models/model_vgg_ft.h5')
 
 img = cv2.imread('./CXR8/Images/00012413_002.png', cv2.IMREAD_COLOR)

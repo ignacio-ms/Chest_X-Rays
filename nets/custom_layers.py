@@ -11,8 +11,9 @@ class LSEPooling(tf.keras.layers.Layer):
 
 def w_cel_loss():
     def weighted_cross_entropy_with_logits(labels, logits):
-        w = tf.cast(tf.reduce_sum(labels), tf.float32) / tf.cast(tf.size(labels), tf.float32)
-        labels = tf.cast(labels, tf.float32)
+        w = tf.cast(tf.reduce_sum(labels), tf.float16) / tf.cast(tf.size(labels), tf.float16)
+        labels = tf.cast(labels, tf.float16)
+        logits = tf.cast(logits, tf.float16)
 
         loss = tf.nn.weighted_cross_entropy_with_logits(
             labels, logits, w

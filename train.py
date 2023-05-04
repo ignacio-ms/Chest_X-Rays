@@ -1,4 +1,3 @@
-from nets.vgg_net import TransferVGG
 from nets.res_net import TransferResNet
 from datasets import CXRDataset
 
@@ -13,22 +12,26 @@ VAL_LIST_FILE = './CXR8/Labels/val_list.txt'
 TEST_LIST_FILE = './CXR8/Labels/test_list.txt'
 
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+physical_devices = tf.config.experimental.list_physical_devices('GPU')
+if len(physical_devices) > 0:
+    tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    print(f'GPU {physical_devices[0]} set memory growth')
 
 
 print('Loading train data...')
 train_gen = CXRDataset(
     IMG_DIR,
     TRAIN_LIST_FILE,
-    batch_size=16,
-    resize=(512, 512)
+    batch_size=8,
+    resize=(256, 256)
 )
 
 print('Loading validation data...')
 val_gen = CXRDataset(
     IMG_DIR,
     VAL_LIST_FILE,
-    batch_size=16,
-    resize=(512, 512)
+    batch_size=8,
+    resize=(256, 256)
 )
 
 # ----- TransferVGG Training and Evaluation ----- #
@@ -38,7 +41,7 @@ model_vgg.compile(lr=1e-3)
 model_vgg.train(
     train_gen,
     val_gen,
-    batch_size=16, epochs=10,
+    batch_size=8, epochs=10,
     save=True, verbose=True
 )
 

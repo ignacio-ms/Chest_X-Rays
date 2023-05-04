@@ -39,7 +39,7 @@ class CXRDataset(tf.keras.utils.Sequence):
             if self.resize is not None:
                 img = cv2.resize(img, self.resize, interpolation=cv2.INTER_AREA)
             img = img / 255.0
-            img = img.astype(np.float32)
+            img = img.astype(np.float16)
         return img
 
     def __get_label(self, label_id):
