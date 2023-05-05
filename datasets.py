@@ -56,10 +56,5 @@ class CXRDataset(tf.keras.utils.Sequence):
         y = batch_y  # [self.__get_label(label) for label in batch_y]
         return tf.convert_to_tensor(x), tf.convert_to_tensor(y)
 
-#     def oh2disease(self, label):
-#         """
-#         :param label: OneHot-Encoded label of the img
-#         :return: Dissease/s label of the img
-#         """
-#         dis = np.array(list(map(self.CLASS_NAMES.__getitem__, np.nonzero(label)[0])))
-#         return dis if len(dis) != 0 else np.array('Normal')
+    def oh2disease(self, idx):
+        return self.CLASS_NAMES[idx]

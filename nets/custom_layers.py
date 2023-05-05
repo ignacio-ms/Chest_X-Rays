@@ -2,7 +2,7 @@ import tensorflow as tf
 
 
 class LSEPooling(tf.keras.layers.Layer):
-    def __init__(self):
+    def __init__(self, **kwargs):
         super(LSEPooling, self).__init__()
 
     def call(self, inputs, *args, **kwargs):

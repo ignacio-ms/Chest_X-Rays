@@ -13,8 +13,8 @@ import matplotlib.pyplot as plt
 
 class TransferResNet:
 
-    def __init__(self):
-        self.input_shape = (256, 256, 3)
+    def __init__(self, input_shape=(256, 256, 3)):
+        self.input_shape = input_shape
         self.n_classes = 14
 
         self.model = None
@@ -30,7 +30,7 @@ class TransferResNet:
         x = self.base_model.output
         x_trans = Conv2D(1024, kernel_size=3, padding="same", strides=1, name='transition_layer')(x)
         x = LSEPooling()(x_trans)
-        predictions = Dense(self.n_classes, activation='sigmoid')(x)
+        predictions = Dense(self.n_classes, activation='sigmoid', name='prediction_layer')(x)
 
         self.model = Model(inputs=self.base_model.inputs, outputs=predictions)
 
@@ -72,18 +72,18 @@ class TransferResNet:
             self.model.summary()
 
             # Train summary
-            acc = history.history['accuracy']
-            val_acc = history.history['val_accuracy']
+            acc = history.history['auc']
+            val_acc = history.history['val_auc']
 
             loss = history.history['loss']
             val_loss = history.history['val_loss']
 
             plt.figure(figsize=(8, 8))
             plt.subplot(1, 2, 1)
-            plt.plot(acc, label='Training Accuracy')
-            plt.plot(val_acc, label='Validation Accuracy')
+            plt.plot(acc, label='Training AUC')
+            plt.plot(val_acc, label='Validation AUC')
             plt.legend(loc='lower right')
-            plt.title('Training and Validation Accuracy')
+            plt.title('Training and Validation AUC')
 
             plt.subplot(1, 2, 2)
             plt.plot(loss, label='Training Loss')
@@ -94,63 +94,29 @@ class TransferResNet:
 
         return history
 
-    def class_activation_mapping(self, original_img, target_class=1):
-        # a = self.model.layers[-3].output[0]
-        # w = self.model.layers[-1].get_weights()[0]
-        # return tf.matmul(a, w)
-
-        w, h, _ = original_img.shape
-        # img = np.array([np.transpose(np.float16(original_img), (2, 0, 1))])
-        img = original_img.reshape(1, 512, 512, 3)
-
-        class_weights = self.model.layers[-1].get_weights()[0]
-        transition_layer = self.model.layers[-3]
-
-        get_output = K.function(
-            [self.model.layers[0].input],
-            [
-                transition_layer.output,
-                self.model.layers[-1].output
-            ]
-        )
-        [transition_outputs, predictions] = get_output([img])
-        transition_outputs = transition_outputs[0, :, :, :]
-
-        cam = np.zeros(dtype=np.float16, shape=transition_outputs.shape[1:3])
-        print(class_weights[target_class, :].shape)
-        for i, w in enumerate(class_weights[target_class, :]):
-            cam += w * transition_outputs[i, :, :]
-
-        cam = cv2.resize(cam, (512, 512))
-        cam = np.maximum(cam, 0)
-        heatmap = cam / np.max(cam)
-
-        original_img = original_img[0, :]
-        original_img -= np.min(original_img)
-        original_img = np.minimum(original_img, 255)
-
-        cam = cv2.applyColorMap(np.uint8(255 * heatmap), cv2.COLORMAP_JET)
-        cam = np.float16(cam) + np.float16(original_img)
-        cam = 255 * cam / np.max(cam)
-        return np.uint8(cam), heatmap
-
     def load(self, path):
-        self.model = tf.keras.models.load_model(path)
+        self.model = tf.keras.models.load_model(
+            path,
+            custom_objects={
+                'LSEPooling': LSEPooling(),
+                'weighted_cross_entropy_with_logits': w_cel_loss(),
+            }
+        )
 
-    # def predict_per_class(self, X: tf.Tensor, y: tf.Tensor, verbose=False) -> [int]:
-    #     pred = self.model.predict(X)
-    #     pred = np.argmax(pred, axis=1)
-    #
-    #     prob_per_class = []
-    #     for c in np.unique(y):
-    #         c_pred = np.sum(np.where(pred[y == c] == y[y == c], 1, 0))
-    #         prob_per_class.append(c_pred / np.sum(np.where(y == c, 1, 0)))
-    #
-    #     if verbose:
-    #         plt.bar(np.unique(y), prob_per_class)
-    #         plt.title('Accuracy predictions per class')
-    #         plt.xlabel('Classes')
-    #         plt.ylabel('Accuracy')
-    #         plt.show()
-    #
-    #     return prob_per_class
+    def predict_per_class(self, X, y, verbose=False):
+        pred = self.model.predict(X)
+        pred = np.argmax(pred, axis=1)
+
+        prob_per_class = []
+        for c in np.unique(y):
+            c_pred = np.sum(np.where(pred[y == c] == y[y == c], 1, 0))
+            prob_per_class.append(c_pred / np.sum(np.where(y == c, 1, 0)))
+
+        if verbose:
+            plt.bar(np.unique(y), prob_per_class)
+            plt.title('Accuracy predictions per class')
+            plt.xlabel('Classes')
+            plt.ylabel('Accuracy')
+            plt.show()
+
+        return prob_per_class
