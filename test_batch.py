@@ -31,36 +31,21 @@ test_gen = CXRDataset(
     resize=INPUT_SHAPE[:2]
 )
 
-
-# results = model_res.model.evaluate(test_gen, batch_size=16)
-# print(f'(Loss, AUC) - {results}')
-
-pred = model_res.model.predict(test_gen)
-pred_class = pred.round()
-print(classification_report(test_gen.img_labels, pred_class, target_names=test_gen.CLASS_NAMES))
-
-conf_m = multilabel_confusion_matrix(test_gen.img_labels, pred_class)[0]
-TN, FP = conf_m[0]
-TP, FN = conf_m[1]
-prec = TP / (TP + FP)
-rec = TP / (TP + FN)
-
-print(f' [TN, FP] \n [TP, FN]: \n{conf_m}')
-print(f'Precision: {prec}')
-print(f'Recall: {rec}')
-print(f'F1-Score: {(2 * prec * rec) / (prec + rec)}')
-
-
-rng_idx = np.random.randint(0, len(test_gen.img_names), 50)
+rng_idx = np.random.randint(0, len(test_gen.img_names), 10)
 
 for i in rng_idx:
-    pred_idx = np.where(pred_class[i] == 1)[0]
-
     img_orig = cv2.imread(test_gen.img_names[i], cv2.IMREAD_COLOR)
     img = cv2.cvtColor(img_orig, cv2.COLOR_BGR2RGB)
     img = cv2.resize(img, (512, 512), interpolation=cv2.INTER_AREA)
     img = img / 255.0
     img = img.astype(np.float32)
+
+    pred = model_res.model.predict(img.reshape(1, 512, 512, 3))[0]
+    print(pred)
+    pred_class = pred.round()
+
+    pred_idx = np.where(pred_class == 1)[0]
+    print(pred_idx)
 
     out = img_orig
 
@@ -75,7 +60,7 @@ for i in rng_idx:
             label = test_gen.oh2disease(idx)
             cv2.rectangle(output, (0, 0), (340, 40), (0, 0, 0), -1)
             cv2.putText(
-                output, label + ' ' + str(pred[i, idx]),
+                output, label + ' ' + str(pred[idx]),
                 (10, 25), cv2.FONT_HERSHEY_SIMPLEX,
                 0.8, (255, 255, 255), 2
             )
@@ -92,6 +77,7 @@ for i in rng_idx:
 
     y_labels = np.where(np.array(test_gen.img_labels[i]) == 1)[0]
     print(test_gen.img_labels[i])
+    print(y_labels)
     if np.sum(y_labels) != 0:
         print([test_gen.oh2disease(id_lab) for id_lab in y_labels])
     else:
