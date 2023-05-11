@@ -32,8 +32,8 @@ test_gen = CXRDataset(
 )
 
 
-# results = model_res.model.evaluate(test_gen, batch_size=16)
-# print(f'(Loss, AUC) - {results}')
+results = model_res.model.evaluate(test_gen, batch_size=16)
+print(f'(Loss, AUC) - {results}')
 
 pred = model_res.model.predict(test_gen)
 pred_class = pred.round()
