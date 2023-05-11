@@ -1,3 +1,4 @@
+from sklearn.metrics import classification_report
 import tensorflow as tf
 import cv2
 
@@ -55,7 +56,7 @@ class TransferResNet:
             callbacks.append(ModelCheckpoint(
                 filepath='D:\\model_res.{epoch:02d}.h5',
                 monitor="auc", verbose=1,
-                save_best_only=False)
+                save_best_only=True)
             )
 
         # Train Model
@@ -103,20 +104,8 @@ class TransferResNet:
             }
         )
 
-    # def predict_per_class(self, X, y, verbose=False):
-    #     pred = self.model.predict(X)
-    #     pred = np.argmax(pred, axis=1)
-    #
-    #     prob_per_class = []
-    #     for c in np.unique(y):
-    #         c_pred = np.sum(np.where(pred[y == c] == y[y == c], 1, 0))
-    #         prob_per_class.append(c_pred / np.sum(np.where(y == c, 1, 0)))
-    #
-    #     if verbose:
-    #         plt.bar(np.unique(y), prob_per_class)
-    #         plt.title('Accuracy predictions per class')
-    #         plt.xlabel('Classes')
-    #         plt.ylabel('Accuracy')
-    #         plt.show()
-    #
-    #     return prob_per_class
+    def predict_per_class(self, X_gen, y):
+        pred = self.model.predict(X_gen)
+        pred_class = pred.round()
+
+        print(classification_report(y, pred_class))
