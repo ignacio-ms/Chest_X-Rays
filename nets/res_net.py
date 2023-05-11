@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 class TransferResNet:
 
-    def __init__(self, input_shape=(256, 256, 3)):
+    def __init__(self, input_shape=(512, 512, 3)):
         self.input_shape = input_shape
         self.n_classes = 14
 
@@ -48,7 +48,7 @@ class TransferResNet:
 
     def train(self, train_gen, val_gen, batch_size=16, epochs=20, save=False, verbose=False):
         callbacks = [
-            ReduceLROnPlateau(monitor="auc", patience=3, factor=0.1, verbose=1, min_lr=1e-6),
+            ReduceLROnPlateau(monitor="auc", patience=2, factor=0.1, verbose=1, min_lr=1e-6),
             EarlyStopping(monitor="auc", patience=5, verbose=1)
         ]
         if save:
@@ -103,20 +103,20 @@ class TransferResNet:
             }
         )
 
-    def predict_per_class(self, X, y, verbose=False):
-        pred = self.model.predict(X)
-        pred = np.argmax(pred, axis=1)
-
-        prob_per_class = []
-        for c in np.unique(y):
-            c_pred = np.sum(np.where(pred[y == c] == y[y == c], 1, 0))
-            prob_per_class.append(c_pred / np.sum(np.where(y == c, 1, 0)))
-
-        if verbose:
-            plt.bar(np.unique(y), prob_per_class)
-            plt.title('Accuracy predictions per class')
-            plt.xlabel('Classes')
-            plt.ylabel('Accuracy')
-            plt.show()
-
-        return prob_per_class
+    # def predict_per_class(self, X, y, verbose=False):
+    #     pred = self.model.predict(X)
+    #     pred = np.argmax(pred, axis=1)
+    #
+    #     prob_per_class = []
+    #     for c in np.unique(y):
+    #         c_pred = np.sum(np.where(pred[y == c] == y[y == c], 1, 0))
+    #         prob_per_class.append(c_pred / np.sum(np.where(y == c, 1, 0)))
+    #
+    #     if verbose:
+    #         plt.bar(np.unique(y), prob_per_class)
+    #         plt.title('Accuracy predictions per class')
+    #         plt.xlabel('Classes')
+    #         plt.ylabel('Accuracy')
+    #         plt.show()
+    #
+    #     return prob_per_class

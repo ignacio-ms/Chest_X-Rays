@@ -14,7 +14,7 @@ class GradCAM:
             inputs=[self.model.inputs],
             outputs=[
                 self.model.get_layer('transition_layer').output,
-                self.model.layers[-1].output  # get_weights()[0]
+                self.model.layers[-1].output
             ]
         )
 
